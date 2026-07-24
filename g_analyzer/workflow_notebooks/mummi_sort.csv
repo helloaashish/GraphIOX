@@ -1,0 +1,15 @@
+src,dest,wt
+f_createsims_failure,p_14251,85904186
+f_createsims_failure,p_cganalysis,81780740
+f_createsims_failure,p_createsims,76894074
+f_createsims_success,p_14251,85904283
+f_createsims_success,p_cganalysis,1890849941
+f_createsims_success,p_createsims,1661884098
+f_structure_iterx_x.npz,p_cganalysis,19954
+f_structure_iterx_x.npz,p_createsims,12624
+f_structure_iterx_x.npz,p_mlserver,29359864
+p_cganalysis,f_createsims_failure,81780740
+p_cganalysis,f_createsims_success,1890849941
+p_createsims,f_createsims_failure,76894074
+p_createsims,f_createsims_success,1661884098
+p_mlserver,f_structure_iterx_x.npz,29359864
