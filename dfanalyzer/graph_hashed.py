@@ -5,6 +5,7 @@ import os
 import glob
 import pandas as pd
 import networkx as nx
+import logging
 
 
 class DFGrepInterference:
@@ -17,8 +18,30 @@ class DFGrepInterference:
     existing (bool): If true, computation can be avoided and the instance can be loaded from checkpoint files for downstream analysis
     """
 
+    '''
+    analyzer-> is DFAnalyzer type
+    analyzer.events -> is list of all the events dask dataframe type
+
+    
+    '''
+
+    # def __init__(self, data_ddf=None, metadata_ddf = None, app_name="", cp_dir="", existing=False):
+    #     if existing:
+    #         self.read_checkpoint(id = "interference_data", cp_dir = cp_dir)
+    #         self.read_checkpoint(id = "interference_metadata", cp_dir = cp_dir)
+    #     else:
+    #         self.data_ddf = data_ddf
+    #         self.metadat_ddf = metadata_ddf
+    #         self.degree_data = None
+    #         self.degree_metadata = None
+    #         self.interference_data = None
+    #         self.interfernence_metadata = None
+    #         self.app_name = app_name
+    #         self.cp_dir = cp_dir
+
+
     def __init__(self, ddf=None, app_name="", cp_dir="", existing=False):
-        self.ddf = ddf
+        self.ddf = ddf #complete dataframe read by 
         self.ddf_data = None
         self.ddf_metadata = None
         self.deg_data = None
@@ -31,22 +54,22 @@ class DFGrepInterference:
         self.meta = {
             'id': str,
             'name': str,
-            'pid': int,
+            'cat': str,
             'size': int,
             'ts': int,
             'te': int,
-            'mount_point': str,
             'dur': int,
             'trange': int,
+            'mount_point': str,
+            'hostname': str,
             'deg': int
         }
         if existing:
             self.read_checkpoint(id="inter", cp_dir=cp_dir)
             self.read_checkpoint(id='inter_metadata', cp_dir=cp_dir)
         else:
-            self.ddf_data = self.select_data_cols(
-                cols=['id', 'name', 'pid', 'size', 'ts', 'te', 'mount_point', 'dur', 'trange'])
-            self.ddf_metadata = self.select_metadata_cols(cols=['id', 'name', 'pid', 'size', 'ts', 'te', 'mount_point', 'dur', 'trange'])
+            self.ddf_data = self.select_data_cols(cols=['id','name','cat','size','ts','te','dur','trange','mount_point','hostname'])
+            self.ddf_metadata = self.select_metadata_cols(cols=['id','name','cat','size','ts','te','dur','trange','mount_point','hostname'])
 
     def select_data_cols(self, cols=[]):
         '''
@@ -54,7 +77,7 @@ class DFGrepInterference:
         '''
         return self.ddf.query('size > 0')[cols]
     
-    def select_metadata_cols(self, cols=[]):
+    def select_metadata_cols(self,cols = []):
         '''
         returns the data with size > 0 and with selected columns 
         '''
@@ -88,12 +111,17 @@ class DFGrepInterference:
             df_group['deg'] = degrees
             return df_group
 
+        logging.info(f" Finding degree for data columns started !")
         self.deg_data = self.ddf_data.groupby(['mount_point', 'trange']).apply(get_deg, meta=self.meta).reset_index(
-            drop=True)  # multiple trange column error while writing so had to drop
+            drop=True) 
         # self.ddf_deg.set_index(['id'])
+        logging.info(f" Degree for data Completed !")
+        logging.info(f" Degree for metadata Started !")
         self.deg_metadata = self.ddf_metadata.groupby(['mount_point', 'trange']).apply(get_deg, meta=self.meta).reset_index(
-            drop=True)  # multiple trange column error while writing so had to drop
+            drop=True) 
+        logging.info(f" Degree for data Completed !")
 
+    #logging 
     def get_interference(self):
         '''
         calculate the interference factor for each events.
@@ -106,7 +134,7 @@ class DFGrepInterference:
             '''
             ddf1 = ddf.copy()
             list_deg = ddf1.groupby(["mount_point", "size"])[
-                "deg"].min().compute()
+                "deg"].min()
             agg_dict = {}
             for deg in list_deg:
                 agg_dict[str(deg)] = min
@@ -126,8 +154,7 @@ class DFGrepInterference:
                 val['min_dur'] = val['min_dur'].mask(
                     val['deg'].eq(deg), val[str(deg)])
             ddf2 = val.reset_index()
-            merge = ddf.merge(ddf2, on=['size', 'mount_point'], how='left', suffixes=('_caller', '_other'))[
-                ['name', 'pid', 'size', 'ts', 'te', 'mount_point', 'dur', 'trange', 'deg_caller', 'deg_other', 'min_dur']]
+            merge = ddf.merge(ddf2, on=['size', 'mount_point'], how='left', suffixes=('_caller', '_other'))[['name','cat','size','ts','te','dur','trange','mount_point','hostname', 'deg_caller', 'deg_other', 'min_dur']]
             merge['interference'] = merge['min_dur']/merge['dur']
             return merge
 
@@ -149,7 +176,7 @@ class DFGrepInterference:
             '''
             ddf1 = ddf.copy()
             list_deg = ddf1.groupby(["mount_point", "name"])[
-                "deg"].min().compute()
+                "deg"].min()
             agg_dict = {}
             for deg in list_deg:
                 agg_dict[str(deg)] = min
@@ -169,8 +196,7 @@ class DFGrepInterference:
                 val['min_dur'] = val['min_dur'].mask(
                     val['deg'].eq(deg), val[str(deg)])
             ddf2 = val.reset_index()
-            merge = ddf.merge(ddf2, on=['name', 'mount_point'], how='left', suffixes=('_caller', '_other'))[
-                ['name', 'pid', 'size', 'ts', 'te', 'mount_point', 'dur', 'trange', 'deg_caller', 'deg_other', 'min_dur']]
+            merge = ddf.merge(ddf2, on=['name', 'mount_point'], how='left', suffixes=('_caller', '_other'))[['name','cat','size','ts','te','dur','trange','mount_point','hostname', 'deg_caller', 'deg_other', 'min_dur']]
             merge['interference'] = merge['min_dur']/merge['dur']
             return merge
 
